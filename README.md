@@ -251,6 +251,7 @@ touch /tmp/rr_preview.flag         # 预览大休息完整流程（含循环画�
 touch /tmp/rr_preview_blink.flag   # 演示一次眨眼
 touch /tmp/rr_preview_halo.flag    # 单独看边缘光晕
 touch /tmp/rr_preview_report.flag  # 生成并打开今日播报
+touch /tmp/rr_preview_menu.flag    # 打开菜单并停留 2.5 秒（用于截图）
 ```
 
 日志会轮转（超过 512 KB 保留最近 2000 行），不会无限增长：
