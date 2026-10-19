@@ -6,7 +6,7 @@
 [![Language](https://img.shields.io/badge/Swift-5.9-orange)](https://swift.org)
 [![License](https://img.shields.io/badge/License-MIT-34a853)](LICENSE)
 
-🌏 [中文说明](README.md)
+🌐 **[Landing page](https://zephyr-777.github.io/RestReminder/)** · 🌏 [中文说明](README.md)
 
 ![Menu](docs/images/menu.jpg)
 

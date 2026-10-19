@@ -7,6 +7,8 @@
 [![License](https://img.shields.io/badge/License-MIT-34a853)](LICENSE)
 [![Dependencies](https://img.shields.io/badge/dependencies-none-34a853)](#)
 
+🌐 **[官网 / 介绍页](https://zephyr-777.github.io/RestReminder/)** · 🍎 [English](README.en.md)
+
 ![菜单](docs/images/menu.jpg)
 
 ---
@@ -228,6 +230,7 @@ assets/
   rest-loop.mp4           15 秒无缝循环的呼吸画面
   render-breath.swift     该画面的逐帧渲染脚本（Core Graphics）
 docs/
+  index.html              官网介绍页（GitHub Pages 从这里发布）
   design/                 循环画面、呼吸着色器与实现笔记
   images/                 README 用图
 ```

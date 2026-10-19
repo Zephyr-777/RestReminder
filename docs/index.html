@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RestReminder · 不打断你的护眼提醒</title>
+<meta name="description" content="RestReminder 是一个常驻 macOS 菜单栏的护眼与休息提醒工具。它用菜单栏那只眼睛、15 秒的四步动作和一份每日播报，把「眨眼、远眺、起身」放进你的日常节奏，而不是弹窗打断你。">
+<meta property="og:title" content="RestReminder · 不打断你的护眼提醒">
+<meta property="og:description" content="用余光提醒你眨眼、远眺、起身的 macOS 菜单栏工具。开源、纯本地、零依赖。">
+<meta property="og:image" content="images/menu-dark.jpg">
+<meta name="theme-color" content="#08090d">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230b0d12'/%3E%3Cellipse cx='16' cy='16' rx='10' ry='6.4' fill='none' stroke='%236BE0CC' stroke-width='1.8'/%3E%3Ccircle cx='16' cy='16' r='3.2' fill='%236BE0CC'/%3E%3C/svg%3E">
+<style>
+  :root{
+    --bg:#08090d;
+    --bg-soft:#0c0f14;
+    --panel:#10141b;
+    --panel-2:#141922;
+    --line:rgba(255,255,255,.075);
+    --line-strong:rgba(255,255,255,.14);
+    --ink:#f2f5fa;
+    --ink-2:#a6b0c0;
+    --ink-3:#6d7787;
+    --accent:#6BE0CC;
+    --accent-dim:rgba(107,224,204,.14);
+    --radius:20px;
+    --max:1120px;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro SC","SF Pro Text","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    -webkit-font-smoothing:antialiased;line-height:1.7;
+    overflow-x:hidden;
+  }
+  a{color:inherit;text-decoration:none}
+  img{max-width:100%;display:block}
+  .wrap{max-width:var(--max);margin:0 auto;padding:0 24px}
+  .mono{font-family:ui-monospace,SFMono-Regular,"SF Mono",Menlo,monospace}
+
+  /* ── 顶部导航 ── */
+  nav{
+    position:sticky;top:0;z-index:50;
+    backdrop-filter:saturate(180%) blur(14px);
+    -webkit-backdrop-filter:saturate(180%) blur(14px);
+    background:rgba(8,9,13,.72);
+    border-bottom:1px solid transparent;
+    transition:border-color .3s ease,background .3s ease;
+  }
+  nav.scrolled{border-bottom-color:var(--line);background:rgba(8,9,13,.86)}
+  .nav-inner{display:flex;align-items:center;gap:28px;height:62px}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:600;letter-spacing:.2px}
+  .brand svg{width:26px;height:26px}
+  .nav-links{display:flex;gap:26px;margin-left:auto;font-size:14px;color:var(--ink-2)}
+  .nav-links a{transition:color .2s}
+  .nav-links a:hover{color:var(--ink)}
+  .nav-cta{
+    display:inline-flex;align-items:center;gap:7px;
+    padding:7px 14px;border-radius:999px;font-size:13.5px;
+    border:1px solid var(--line-strong);color:var(--ink);
+    transition:border-color .2s,background .2s,transform .2s;
+  }
+  .nav-cta:hover{border-color:rgba(107,224,204,.55);background:rgba(107,224,204,.08);transform:translateY(-1px)}
+
+  /* ── Hero ── */
+  header{position:relative;padding:86px 0 40px;overflow:hidden}
+  header::before{
+    content:"";position:absolute;inset:-40% -20% auto -20%;height:760px;
+    background:radial-gradient(45% 55% at 50% 40%,rgba(107,224,204,.17),transparent 70%),
+               radial-gradient(40% 40% at 78% 12%,rgba(70,110,180,.14),transparent 70%);
+    filter:blur(10px);pointer-events:none;
+  }
+  .hero{position:relative;display:grid;grid-template-columns:1.18fr .82fr;gap:52px;align-items:center}
+  .hero>*{min-width:0}
+  .eyebrow{
+    display:inline-flex;align-items:center;gap:8px;font-size:12.5px;letter-spacing:.12em;
+    color:var(--accent);margin-bottom:22px;
+  }
+  .eyebrow::before{content:"";width:22px;height:1px;background:var(--accent);opacity:.7}
+  h1{
+    font-size:clamp(32px,3.5vw,46px);line-height:1.28;letter-spacing:-.02em;
+    font-weight:640;margin:0 0 22px;
+  }
+  h1 em{font-style:normal;color:var(--accent)}
+  .lede{font-size:17px;color:var(--ink-2);max-width:30em;margin:0 0 32px}
+  .cta-row{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-bottom:26px}
+  .btn{
+    display:inline-flex;align-items:center;gap:9px;padding:12px 20px;border-radius:12px;
+    font-size:14.5px;font-weight:520;border:1px solid transparent;
+    transition:transform .18s ease,background .2s,border-color .2s;
+  }
+  .btn:hover{transform:translateY(-1.5px)}
+  .btn-primary{background:var(--accent);color:#06201c}
+  .btn-primary:hover{background:#7fead9}
+  .btn-ghost{border-color:var(--line-strong);color:var(--ink)}
+  .btn-ghost:hover{border-color:rgba(107,224,204,.5);background:rgba(107,224,204,.07)}
+  .cmd{
+    display:flex;align-items:center;gap:12px;margin-top:4px;
+    background:rgba(255,255,255,.035);border:1px solid var(--line);
+    border-radius:12px;padding:11px 13px;font-size:13px;color:var(--ink-2);
+    max-width:min(430px,100%);
+  }
+  .cmd code{color:var(--ink);flex:1;min-width:0;white-space:nowrap;overflow:auto;scrollbar-width:none}
+  .cmd code::-webkit-scrollbar{display:none}
+  .copy{
+    border:1px solid var(--line-strong);background:transparent;color:var(--ink-2);
+    font-size:12px;padding:4px 9px;border-radius:7px;cursor:pointer;white-space:nowrap;
+    transition:all .2s;font-family:inherit;
+  }
+  .copy:hover{color:var(--ink);border-color:rgba(107,224,204,.5)}
+  .copy.done{color:var(--accent);border-color:rgba(107,224,204,.5)}
+  .chips{display:flex;flex-wrap:wrap;gap:18px;margin-top:30px;font-size:12.5px;color:var(--ink-3)}
+  .chips span{display:inline-flex;align-items:center;gap:6px}
+  .chips i{width:5px;height:5px;border-radius:50%;background:var(--accent);opacity:.75}
+
+  .hero-shot{position:relative}
+  .hero-shot img{width:100%;border-radius:16px;box-shadow:0 30px 90px -20px rgba(0,0,0,.9)}
+  .hero-shot::after{
+    content:"";position:absolute;inset:auto 8% -22px 8%;height:40px;
+    background:radial-gradient(50% 100% at 50% 0,rgba(107,224,204,.22),transparent 70%);
+    filter:blur(12px);
+  }
+
+  /* ── 通用区块 ── */
+  section{padding:96px 0;position:relative}
+  .sec-head{max-width:640px;margin-bottom:52px}
+  .kicker{font-size:12.5px;letter-spacing:.14em;color:var(--accent);text-transform:uppercase;margin-bottom:14px}
+  h2{font-size:clamp(26px,3vw,36px);line-height:1.3;letter-spacing:-.015em;font-weight:620;margin:0 0 16px}
+  .sec-head p{color:var(--ink-2);font-size:16px;margin:0}
+  .divider{height:1px;background:linear-gradient(90deg,transparent,var(--line),transparent)}
+
+  /* ── 对比 ── */
+  .compare{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+  .cmp-card{border:1px solid var(--line);border-radius:var(--radius);padding:30px 28px;background:var(--panel)}
+  .cmp-card.bad{border-color:rgba(255,120,120,.16);background:linear-gradient(180deg,rgba(60,20,24,.35),rgba(16,20,27,.6))}
+  .cmp-card.good{border-color:rgba(107,224,204,.22);background:linear-gradient(180deg,rgba(16,52,48,.35),rgba(16,20,27,.6))}
+  .cmp-tag{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);margin-bottom:14px}
+  .cmp-card.bad .cmp-tag{color:#e0a0a0}
+  .cmp-card.good .cmp-tag{color:var(--accent)}
+  .cmp-card h3{margin:0 0 10px;font-size:19px;font-weight:600}
+  .cmp-card p{margin:0;color:var(--ink-2);font-size:14.5px}
+  .cmp-meta{margin-top:20px;font-size:13px;color:var(--ink-3);border-top:1px solid var(--line);padding-top:16px}
+
+  /* ── 三条通道 ── */
+  .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+  .card{
+    border:1px solid var(--line);border-radius:var(--radius);padding:28px 26px;
+    background:linear-gradient(180deg,rgba(255,255,255,.022),transparent);
+    transition:border-color .25s,transform .25s,background .25s;
+  }
+  .card:hover{border-color:rgba(107,224,204,.28);transform:translateY(-3px);background:linear-gradient(180deg,rgba(107,224,204,.05),transparent)}
+  .card .ico{
+    width:38px;height:38px;border-radius:11px;display:grid;place-items:center;
+    background:var(--accent-dim);color:var(--accent);margin-bottom:20px;
+  }
+  .card .ico svg{width:20px;height:20px}
+  .card h3{margin:0 0 8px;font-size:17px;font-weight:600}
+  .card .freq{font-size:12.5px;color:var(--accent);margin-bottom:12px;letter-spacing:.02em}
+  .card p{margin:0;color:var(--ink-2);font-size:14.2px}
+
+  /* ── 四步节拍 ── */
+  .steps-layout{display:grid;grid-template-columns:.95fr 1.05fr;gap:56px;align-items:center}
+  .steps{list-style:none;margin:0;padding:0;position:relative}
+  .steps::before{content:"";position:absolute;left:15px;top:12px;bottom:12px;width:1px;background:linear-gradient(180deg,var(--accent),rgba(107,224,204,.08))}
+  .steps li{position:relative;padding:0 0 30px 52px}
+  .steps li:last-child{padding-bottom:0}
+  .steps .num{
+    position:absolute;left:0;top:0;width:31px;height:31px;border-radius:50%;
+    display:grid;place-items:center;font-size:12.5px;font-variant-numeric:tabular-nums;
+    background:#0c0f14;border:1px solid rgba(107,224,204,.45);color:var(--accent);
+    box-shadow:0 0 0 5px #08090d;
+  }
+  .steps h4{margin:3px 0 4px;font-size:16px;font-weight:600}
+  .steps .t{font-size:12px;color:var(--ink-3);letter-spacing:.04em;margin-left:8px;font-weight:400}
+  .steps p{margin:0;color:var(--ink-2);font-size:14px}
+  .steps .last .num{background:var(--accent);color:#06201c;border-color:var(--accent);box-shadow:0 0 0 5px #08090d,0 0 22px rgba(107,224,204,.4)}
+  .shot{border-radius:16px;overflow:hidden;border:1px solid var(--line)}
+  .shot img{width:100%}
+  .caption{font-size:12.5px;color:var(--ink-3);margin-top:12px;text-align:center}
+
+  /* ── 大休息 ── */
+  .split{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+  .split figure{margin:0}
+  .split img{border-radius:16px;border:1px solid var(--line)}
+
+  /* ── 播报 ── */
+  .report-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:8px}
+  .report-card{border:1px solid var(--line);border-radius:var(--radius);padding:26px;background:var(--panel)}
+  .report-card .val{font-size:30px;font-weight:600;letter-spacing:-.02em;margin:6px 0 2px}
+  .report-card .lbl{font-size:12.5px;color:var(--ink-3)}
+  .report-card .unit{font-size:14px;color:var(--ink-3);margin-left:3px;font-weight:400}
+  .report-card ul{margin:16px 0 0;padding-left:16px;color:var(--ink-2);font-size:13.5px}
+  .report-card li{margin-bottom:6px}
+  .bar{height:4px;border-radius:2px;background:rgba(255,255,255,.08);overflow:hidden;margin-top:18px}
+  .bar i{display:block;height:100%;border-radius:2px;background:linear-gradient(90deg,#6BE0CC,#4bb4d6)}
+
+  /* ── 原则 ── */
+  .principles{display:grid;grid-template-columns:repeat(3,1fr);gap:34px}
+  .principle .n{font-size:12px;color:var(--accent);letter-spacing:.14em;margin-bottom:12px}
+  .principle h3{margin:0 0 8px;font-size:17px;font-weight:600}
+  .principle p{margin:0;color:var(--ink-2);font-size:14.2px}
+  .principle{border-top:1px solid var(--line);padding-top:22px}
+
+  /* ── 隐私 ── */
+  .privacy{display:grid;grid-template-columns:1fr 1fr;gap:44px;align-items:start}
+  .kv{border:1px solid var(--line);border-radius:14px;overflow:hidden}
+  .kv .row{display:flex;justify-content:space-between;gap:16px;padding:13px 18px;font-size:13.5px;border-bottom:1px solid var(--line)}
+  .kv .row:last-child{border-bottom:0}
+  .kv .row span:first-child{color:var(--ink-3)}
+  .kv .row span:last-child{color:var(--ink-2);font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;text-align:right}
+  .checklist{list-style:none;margin:0;padding:0}
+  .checklist li{display:flex;gap:12px;margin-bottom:14px;color:var(--ink-2);font-size:14.5px}
+  .checklist svg{width:17px;height:17px;flex:none;margin-top:4px;color:var(--accent)}
+
+  /* ── 安装 ── */
+  .install{display:grid;grid-template-columns:1.1fr .9fr;gap:28px;align-items:start}
+  pre{
+    margin:0;max-width:100%;background:#0b0e13;border:1px solid var(--line);border-radius:14px;
+    padding:22px 20px;overflow:auto;font-size:13.4px;line-height:1.85;color:#cfd8e6;
+  }
+  pre .c{color:#5d6a7d}
+  pre .p{color:var(--accent)}
+  .req{font-size:13.5px;color:var(--ink-2)}
+  .req li{margin-bottom:8px}
+  .req ul{padding-left:18px;margin:10px 0 0}
+
+  /* ── FAQ ── */
+  .faq{border-top:1px solid var(--line)}
+  details{border-bottom:1px solid var(--line);padding:20px 0}
+  summary{cursor:pointer;font-size:15.5px;font-weight:520;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:20px}
+  summary::-webkit-details-marker{display:none}
+  summary::after{content:"＋";color:var(--ink-3);font-size:17px;transition:transform .2s}
+  details[open] summary::after{content:"－";color:var(--accent)}
+  details p{color:var(--ink-2);font-size:14.2px;margin:12px 0 0;max-width:70ch}
+
+  /* ── 页脚 ── */
+  footer{border-top:1px solid var(--line);padding:44px 0 56px;color:var(--ink-3);font-size:13px}
+  .foot{display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap;align-items:center}
+  .foot a:hover{color:var(--ink)}
+  .foot-links{display:flex;gap:22px}
+
+  /* 滚动进入 */
+  .reveal{opacity:0;transform:translateY(16px);transition:opacity .7s cubic-bezier(.22,.61,.36,1),transform .7s cubic-bezier(.22,.61,.36,1)}
+  .reveal.in{opacity:1;transform:none}
+
+  @media (max-width:900px){
+    .hero,.steps-layout,.privacy,.install{grid-template-columns:1fr;gap:36px}
+    .compare,.split,.cards,.report-grid,.principles{grid-template-columns:1fr}
+    .nav-links{display:none}
+    section{padding:72px 0}
+    header{padding:56px 0 24px}
+    .hero-shot{order:-1}
+  }
+  @media (prefers-reduced-motion:reduce){
+    html{scroll-behavior:auto}
+    .reveal{opacity:1;transform:none;transition:none}
+  }
+</style>
+</head>
+<body>
+
+<nav id="nav">
+  <div class="wrap nav-inner">
+    <a class="brand" href="#top">
+      <svg viewBox="0 0 32 32" fill="none" aria-hidden="true">
+        <ellipse cx="16" cy="16" rx="11.5" ry="7.2" stroke="#6BE0CC" stroke-width="1.9"/>
+        <circle cx="16" cy="16" r="3.6" fill="#6BE0CC"/>
+      </svg>
+      RestReminder
+    </a>
+    <div class="nav-links">
+      <a href="#why">为什么</a>
+      <a href="#channels">功能</a>
+      <a href="#rhythm">四步节拍</a>
+      <a href="#report">播报</a>
+      <a href="#install">安装</a>
+    </div>
+    <a class="nav-cta" href="https://github.com/Zephyr-777/RestReminder" target="_blank" rel="noopener">
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.4 7.4 0 011.99-.27c.68 0 1.36.09 1.99.27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A7.995 7.995 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+      GitHub
+    </a>
+  </div>
+</nav>
+
+<header id="top">
+  <div class="wrap hero">
+    <div>
+      <div class="eyebrow">macOS 菜单栏应用 · 开源</div>
+      <h1>提醒你该忘的三件事，<br>但<em>不打断</em>你正在做的事。</h1>
+      <p class="lede">
+        每 15 分钟弹一次窗，第三天就会变成噪音 —— 而人一旦下意识关掉提醒，这套机制就失效了。
+        RestReminder 换了个思路：把提醒放进<strong>余光</strong>里，把休息做成<strong>一段 15 秒的动作</strong>，把你的用眼情况变成一份<strong>每天能看的播报</strong>。
+      </p>
+      <div class="cta-row">
+        <a class="btn btn-primary" href="#install">开始安装</a>
+        <a class="btn btn-ghost" href="https://github.com/Zephyr-777/RestReminder" target="_blank" rel="noopener">查看源码</a>
+      </div>
+      <div class="cmd">
+        <code>git clone https://github.com/Zephyr-777/RestReminder.git &amp;&amp; cd RestReminder &amp;&amp; ./install.sh</code>
+        <button class="copy" data-copy="git clone https://github.com/Zephyr-777/RestReminder.git && cd RestReminder && ./install.sh">复制</button>
+      </div>
+      <div class="chips">
+        <span><i></i>零依赖 · 一条 swiftc</span>
+        <span><i></i>纯本地 · 不发网络请求</span>
+        <span><i></i>MIT 开源</span>
+        <span><i></i>macOS 13+</span>
+        <span><i></i>v1.1.0</span>
+      </div>
+    </div>
+    <div class="hero-shot">
+      <img src="images/menu-dark.jpg" alt="RestReminder 菜单截图" width="672" height="653">
+    </div>
+  </div>
+</header>
+
+<div class="wrap"><div class="divider"></div></div>
+
+<!-- 为什么 -->
+<section id="why" class="reveal">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="kicker">问题</div>
+      <h2>护眼软件的问题从来不是「不够提醒」，而是「太吵」</h2>
+      <p>一个每 15 分钟出现一次的东西，本质上是一天 30 多次强制中断。真正有效的提醒，应该满足两个条件：它不抢注意力，并且它带着你把动作做完。</p>
+    </div>
+    <div class="compare">
+      <div class="cmp-card bad">
+        <div class="cmp-tag">常见做法</div>
+        <h3>弹窗 → 稍后提醒 → 继续弹</h3>
+        <p>遮住屏幕中央、必须点掉、打断思路。前三次还有效，之后就是肌肉记忆式地关掉。</p>
+        <div class="cmp-meta">注意力被切断一次，重新进入状态平均要十几分钟</div>
+      </div>
+      <div class="cmp-card good">
+        <div class="cmp-tag">这里</div>
+        <h3>余光里的信号 → 15 秒动作 → 回到工作</h3>
+        <p>菜单栏那只眼睛在眨，图标随时间变淡；该休息时全屏只占 15 秒，四步跟着做，不用读、不用点。</p>
+        <div class="cmp-meta">全程不遮挡你正在看的内容，也不要求你回应</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 功能 -->
+<section id="channels" class="reveal">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="kicker">三条通道</div>
+      <h2>频率不同，打扰方式也该不同</h2>
+      <p>一天里最频繁的是眨眼，最重的是起身。它们共用一个入口，但用三种强度提醒你。</p>
+    </div>
+    <div class="cards">
+      <div class="card">
+        <div class="ico">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 21c-4.5-2.4-7-5.6-7-9.2C5 8.4 7 6.5 9.3 6.5c1.2 0 2.2.5 2.7 1.4.5-.9 1.5-1.4 2.7-1.4C17 6.5 19 8.4 19 11.8c0 3.6-2.5 6.8-7 9.2z"/></svg>
+        </div>
+        <h3>微休息</h3>
+        <div class="freq">每 15 分钟 · 15 秒</div>
+        <p>全屏只占 15 秒，四步动作带节拍：闭眼泵压、缓慢眨眼、远眺 6 米、收尾提醒多眨眼。</p>
+      </div>
+      <div class="card">
+        <div class="ico">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2.5 12S6 6.5 12 6.5 21.5 12 21.5 12 18 17.5 12 17.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="2.8"/></svg>
+        </div>
+        <h3>眨眼节律</h3>
+        <div class="freq">每 5 分钟 · 0.8 秒</div>
+        <p>菜单栏那只眼睛眨一下，两次之间图标缓缓变淡当进度条。不弹窗、不出声、不遮挡。</p>
+      </div>
+      <div class="card">
+        <div class="ico">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 17h13a3.5 3.5 0 000-7 5.5 5.5 0 00-10.6-1.5A3.8 3.8 0 004 17z"/></svg>
+        </div>
+        <h3>大休息</h3>
+        <div class="freq">每 45 分钟 · 5 分钟</div>
+        <p>呼吸光晕的循环画面，或者干脆让显示器真熄屏。它是唯一一个会「占满屏幕」的提醒。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 四步节拍 -->
+<section id="rhythm" class="reveal">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="kicker">微休息</div>
+      <h2>15 秒，四步，跟着做就行</h2>
+      <p>不是「告诉你该休息了」，而是把该做的动作走一遍。每步都配图标与文字节拍，你不需要记顺序。</p>
+    </div>
+    <div class="steps-layout">
+      <ol class="steps">
+        <li>
+          <span class="num">1</span>
+          <h4>闭紧双眼 2 秒 <span class="t">0 – 2.5s</span></h4>
+          <p>上下睑缘完全贴合，机械泵压睑板腺分泌脂质。</p>
+        </li>
+        <li>
+          <span class="num">2</span>
+          <h4>自然睁开，缓慢眨眼 <span class="t">2.5 – 6s</span></h4>
+          <p>脂质层铺开，完成一次完整的泪膜重涂。</p>
+        </li>
+        <li>
+          <span class="num">3</span>
+          <h4>看向 6 米以外 <span class="t">6s – 收尾前 4s</span></h4>
+          <p>这几秒不要看手机，让睫状肌从持续收缩中松开。</p>
+        </li>
+        <li class="last">
+          <span class="num">4</span>
+          <h4>记得多眨眼 <span class="t">最后 4 秒</span></h4>
+          <p>图标当场眨两下。从遮罩回到内容的那一刻最容易忘的就是眨眼，所以这句话放在最后一屏。</p>
+        </li>
+      </ol>
+      <div>
+        <div class="shot"><img src="images/micro-break-blink.jpg" alt="微休息第四步：记得多眨眼" width="1350" height="438"></div>
+        <div class="caption">第四步的实拍：图标在「睁眼」与「半闭」之间跳两下</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 大休息 -->
+<section class="reveal">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="kicker">大休息</div>
+      <h2>你以为自己坐了一小时，其实坐了四小时</h2>
+      <p>到点先播一段全屏呼吸动画，然后落进一段无缝循环的画面 —— 或者直接熄屏，让你必须起身。循环画面不是随手录的视频，是按呼吸节律逐帧渲染的。</p>
+    </div>
+    <div class="split">
+      <figure>
+        <img src="images/long-break.jpg" alt="大休息全屏提醒" width="1080" height="699">
+        <div class="caption">到点的全屏提醒</div>
+      </figure>
+      <figure>
+        <img src="images/rest-loop.jpg" alt="循环休息画面" width="1080" height="699">
+        <div class="caption">落进循环画面，花瓣与光晕对齐到 15 秒循环点</div>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<!-- 播报 -->
+<section id="report" class="reveal">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="kicker">每日播报</div>
+      <h2>它不评价你，只把你的一天摆出来</h2>
+      <p>App 每秒记一笔「这一秒在干什么」，按天落盘。播报脚本把它渲染成一份单文件 HTML —— 无外链、可离线打开、也能从菜单里一键生成。</p>
+    </div>
+    <div class="report-grid">
+      <div class="report-card">
+        <div class="lbl">屏幕使用时间</div>
+        <div class="val">24<span class="unit">小时 × 强度</span></div>
+        <ul>
+          <li>总时长、最长连续、会话数</li>
+          <li>每小时用眼强度柱图</li>
+          <li>系统口径 vs 本工具口径对照</li>
+        </ul>
+      </div>
+      <div class="report-card">
+        <div class="lbl">休息时间</div>
+        <div class="val">双轨<span class="unit">达成率</span></div>
+        <ul>
+          <li>一天时间构成的环形图</li>
+          <li>微休 / 大休各自的执行情况</li>
+          <li>被提前跳过的次数也会记下</li>
+        </ul>
+        <div class="bar"><i style="width:71%"></i></div>
+      </div>
+      <div class="report-card">
+        <div class="lbl">用眼状态</div>
+        <div class="val">0–100<span class="unit">风险指数</span></div>
+        <ul>
+          <li>总时长 / 最长连续 / 休息缺口 / 夜间加权</li>
+          <li>14 天趋势与今日对比</li>
+          <li>授权后可读 Apple 的分应用明细</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 原则 -->
+<section class="reveal">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="kicker">设计原则</div>
+      <h2>三条不那么常见的选择</h2>
+    </div>
+    <div class="principles">
+      <div class="principle">
+        <div class="n">01</div>
+        <h3>提醒占余光，不占注意力</h3>
+        <p>最频繁的那一档只动菜单栏的一个图标。看到「眼睛闭上」会诱发镜像性眨眼反射，比读一行「请眨眼」快得多。</p>
+      </div>
+      <div class="principle">
+        <div class="n">02</div>
+        <h3>把动作做完，而不是喊停</h3>
+        <p>15 秒里屏幕带着你走四步，每步有明确的时长和目的。你不需要记住顺序，也不需要判断自己做得对不对。</p>
+      </div>
+      <div class="principle">
+        <div class="n">03</div>
+        <h3>把「忘了休息」变成可见的数据</h3>
+        <p>每天一份播报，不评分、不提醒你「昨天更差」。数据摆在那里，趋势自己会说话。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 隐私 -->
+<section class="reveal">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="kicker">数据与隐私</div>
+      <h2>所有数据都留在你自己的 Mac 上</h2>
+      <p>没有账号，没有遥测，没有崩溃上报，也不会发出任何一个网络请求。</p>
+    </div>
+    <div class="privacy">
+      <div class="kv">
+        <div class="row"><span>统计与播报</span><span>~/Library/Application Support/RestReminder</span></div>
+        <div class="row"><span>运行日志</span><span>~/Library/Logs/RestReminder</span></div>
+        <div class="row"><span>格式</span><span>明文 JSON / HTML</span></div>
+        <div class="row"><span>开机自启</span><span>~/Library/LaunchAgents</span></div>
+        <div class="row"><span>网络请求</span><span>无</span></div>
+      </div>
+      <ul class="checklist">
+        <li>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
+          <span>统计文件是明文 JSON，随时可查看、可删除、可自己写脚本分析。</span>
+        </li>
+        <li>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
+          <span>读 Apple 屏幕使用时间是<strong>可选</strong>功能，需要给宿主动「完全磁盘访问权限」；不授权也能用。</span>
+        </li>
+        <li>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
+          <span>iPhone / iPad 的屏幕使用时间拿不到 —— 不是没做，是 Apple 没开放对应 API。</span>
+        </li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- 安装 -->
+<section id="install" class="reveal">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="kicker">安装</div>
+      <h2>一条命令，不装任何依赖</h2>
+      <p>没有 Xcode 工程、没有 SwiftPM、没有第三方库。build.sh 的核心就是一行 swiftc。</p>
+    </div>
+    <div class="install">
+      <pre><span class="c"># 需要 macOS 13+ 与 Apple Silicon</span>
+<span class="c"># 以及 Xcode Command Line Tools</span>
+xcode-select --install
+
+git clone https://github.com/Zephyr-777/RestReminder.git
+<span class="p">cd</span> RestReminder
+<span class="p">./install.sh</span>
+
+<span class="c"># 编译 → 装进 ~/Applications → 注册 → 启动</span></pre>
+      <div class="req">
+        <strong>安装脚本会做六件事</strong>
+        <ul>
+          <li>编译并做 ad-hoc 签名</li>
+          <li>装进 <span class="mono">~/Applications</span>，不污染系统目录</li>
+          <li>安装播报脚本到 Application Support</li>
+          <li>向 LaunchServices 注册并启动</li>
+        </ul>
+        <p style="margin-top:18px;color:var(--ink-3);font-size:13px">
+          首发版本没有公证签名。如果被 Gatekeeper 拦下，去「系统设置 → 隐私与安全性」点「仍要打开」即可。
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section class="reveal">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="kicker">常见问题</div>
+      <h2>它不做的事，和做不到的事</h2>
+    </div>
+    <div class="faq">
+      <details>
+        <summary>会不会很占资源？</summary>
+        <p>主循环是一秒一次的状态判定，统计只累加整数秒并按天写盘；日志到 512 KB 会自动轮转保留最近 2000 行。没有常驻的视频解码，循环画面是播放本地 MP4 或真熄屏。</p>
+      </details>
+      <details>
+        <summary>它怎么判断我「人不在」？</summary>
+        <p>四路信号一起看：屏幕是否熄灭、是否锁屏、是否有进程持有显示器睡眠断言（说明有视频或会议在播），以及键鼠无输入时长。看视频时手不动，但不会被误判成离开。</p>
+      </details>
+      <details>
+        <summary>为什么只有 Apple Silicon 版本？</summary>
+        <p>build.sh 里的编译目标写死为 arm64。Intel 机器把 -target 改成 x86_64-apple-macosx13.0 重新编译即可，源码本身没有依赖 Apple Silicon 的特性。</p>
+      </details>
+      <details>
+        <summary>能同步到手机吗？</summary>
+        <p>不能。跨设备的屏幕使用时间在 Apple 的私有 CloudKit 容器里，本机不落任何文件，也没有公开 API。想要手机数据，只能看你 iPhone 上的「屏幕使用时间」界面。</p>
+      </details>
+      <details>
+        <summary>可以关掉某一部分吗？</summary>
+        <p>三条通道各自独立：微休息、眨眼节律、大休息都能单独开关和调周期。只想要眨眼提醒，把另外两档关掉即可。</p>
+      </details>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap foot">
+    <div>© 2026 Zephyr · MIT License</div>
+    <div class="foot-links">
+      <a href="https://github.com/Zephyr-777/RestReminder" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/Zephyr-777/RestReminder/blob/main/README.md" target="_blank" rel="noopener">中文说明</a>
+      <a href="https://github.com/Zephyr-777/RestReminder/blob/main/README.en.md" target="_blank" rel="noopener">English</a>
+      <a href="https://github.com/Zephyr-777/RestReminder/blob/main/LICENSE" target="_blank" rel="noopener">License</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+  // 导航滚动阴影
+  const nav = document.getElementById('nav');
+  const onScroll = () => nav.classList.toggle('scrolled', window.scrollY > 8);
+  onScroll();
+  addEventListener('scroll', onScroll, {passive:true});
+
+  // 复制安装命令
+  document.querySelectorAll('.copy').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const text = btn.dataset.copy;
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch (e) {
+        const ta = document.createElement('textarea');
+        ta.value = text; document.body.appendChild(ta); ta.select();
+        document.execCommand('copy'); ta.remove();
+      }
+      const old = btn.textContent;
+      btn.textContent = '已复制';
+      btn.classList.add('done');
+      setTimeout(() => { btn.textContent = old; btn.classList.remove('done'); }, 1600);
+    });
+  });
+
+  // 滚动进入
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
+    });
+  }, {threshold: 0.12, rootMargin: '0px 0px -40px 0px'});
+  document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+</script>
+</body>
+</html>
