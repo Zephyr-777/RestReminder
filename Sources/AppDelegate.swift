@@ -771,6 +771,21 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             openTodayReportAction()
         }
 
+        // 调试入口：`touch /tmp/rr_preview_menu.flag` 打开菜单并停留 2.5 秒，方便外部截图。
+        // 菜单进入 tracking 模式会阻塞主线程，所以收起用的 Timer 必须注册到 .eventTracking，
+        // 否则它要等菜单关掉之后才会触发，等于没用。
+        let menuFlag = "/tmp/rr_preview_menu.flag"
+        if FileManager.default.fileExists(atPath: menuFlag) {
+            try? FileManager.default.removeItem(atPath: menuFlag)
+            logDebug("调试：收到 /tmp/rr_preview_menu.flag，打开菜单等待截图")
+            let closer = Timer(timeInterval: 2.5, repeats: false) { [weak self] _ in
+                self?.statusItem.menu?.cancelTracking()
+            }
+            RunLoop.main.add(closer, forMode: .eventTracking)
+            RunLoop.main.add(closer, forMode: .common)
+            statusItem.button?.performClick(nil)
+        }
+
         // 微休息全屏指引中
         if isInMicroBreak {
             updateStatusIcon()
