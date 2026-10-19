@@ -1,0 +1,39 @@
+# ── 构建产物 ──
+/RestReminder.app/
+/cache/
+/main
+*.o
+*.dSYM/
+
+# ── 运行时数据（绝不入库：含个人用眼记录）──
+/debug.log
+/reports/
+/stats/
+*.log
+
+# ── 工作目录里的大图与旧版单文件（仓库只保留 docs/images 下压缩过的版本）──
+/menu-preview.png
+/menubar-preview.png
+/sleep-overlay-preview.png
+/loop-screen-preview.png
+/blink-frames.png
+/micro-break-blink-step.png
+/breath-stages.png
+/breath-tuning.png
+/icon-states.png
+/main-v1-monolith.swift
+
+# ── 素材源文件（只提交打包用的 rest-loop.mp4 与渲染脚本）──
+/assets/loop-frame-*.png
+/assets/rest-loop-v*.mp4
+/assets/render-breath-v1.swift
+
+# ── 本地便利脚本 ──
+/start.command
+
+# ── 系统与编辑器 ──
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
