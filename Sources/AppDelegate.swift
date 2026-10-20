@@ -96,6 +96,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     var healthTipMenuItem: NSMenuItem!
     var presenceDetailItem: NSMenuItem!
     var pauseMenuItem: NSMenuItem!
+    // 立即大休入口（标题里带当前休息时长）
+    var startLongBreakItem: NSMenuItem!
 
     // 微休息设置
     var microBreakToggleItem: NSMenuItem!
@@ -276,7 +278,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         
         menu.addItem(NSMenuItem.separator())
 
-        menu.addItem(NSMenuItem.separator())
+        // 主操作放在最上面：不想等计时、现在就想歇一会儿 —— 点这里立刻走一遍大休息。
+        startLongBreakItem = NSMenuItem(title: "☕️ 立即大休", action: #selector(startLongBreakNowAction), keyEquivalent: "b")
+        startLongBreakItem.target = self
+        menu.addItem(startLongBreakItem)
 
         let resetItem = NSMenuItem(title: "🔄 重新计时 / 我已休息", action: #selector(resetTimerAction), keyEquivalent: "r")
         resetItem.target = self
@@ -637,6 +642,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         pauseMenuItem.title = isManualPaused ? "▶️ 恢复提醒" : "⏸️ 暂停提醒"
 
+        // 立即大休：标题直接写清这一休有多长，省得还要翻子菜单确认；
+        // 全屏遮罩已经在显示 / 已经在休息时置灰，避免重复点击叠出第二个遮罩。
+        // 注意不要用 isReminding 来判 —— 「到点提醒过但没开强制熄屏」时它也是 true，
+        // 那恰恰是用户最想手动歇一下的时刻。
+        let restSuffix = restCountdownMinutes > 0 ? "\(restCountdownMinutes) 分钟" : "不限时"
+        startLongBreakItem.title = "☕️ 立即大休（\(restSuffix)）"
+        startLongBreakItem.isEnabled = overlay == nil && !inRestLoop && !isInMicroBreak
+
         // 微休息设置状态
         microBreakToggleItem.state = microBreakEnabled ? .on : .off
         microInterval10Item.state = microBreakIntervalMinutes == 10 ? .on : .off
@@ -760,6 +773,15 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             try? FileManager.default.removeItem(atPath: microFlag)
             logDebug("调试：收到 /tmp/rr_preview_micro.flag，触发微休息全屏指引")
             presentMicroBreakOverlay()
+            return
+        }
+
+        // 调试入口：`touch /tmp/rr_start_longbreak.flag` 立刻走一遍「立即大休」
+        let longBreakFlag = "/tmp/rr_start_longbreak.flag"
+        if FileManager.default.fileExists(atPath: longBreakFlag) {
+            try? FileManager.default.removeItem(atPath: longBreakFlag)
+            logDebug("调试：收到 /tmp/rr_start_longbreak.flag，立即大休")
+            startLongBreakNowAction()
             return
         }
 
@@ -992,12 +1014,18 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     // MARK: - 强制熄屏
     /// 全屏提醒动画。forceSleep = true 时动画走完会强制熄屏。
-    func presentSleepOverlay(forceSleep: Bool) {
+    ///
+    /// manual = true 表示这是用户点「立即大休」主动触发的，不是到点提醒：
+    /// 唯一的差别是「循环休息画面」要按真实休息记账（`restLoopIsPreview = false`），
+    /// 不能像预览那样白看一场；熄屏与否仍然尊重用户的开关，不给他强行黑屏。
+    func presentSleepOverlay(forceSleep: Bool, manual: Bool = false) {
         guard overlay == nil else {
             logDebug("presentSleepOverlay: 遮罩已在显示中，忽略本次")
             return
         }
-        
+
+        let isPreview = !forceSleep && !manual
+
         let ov = BreakOverlay(duration: TimeInterval(sleepLeadSeconds))
         overlay = ov
         ov.onFinish = { [weak self] naturally in
@@ -1007,19 +1035,38 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 // 用户在动画播完前按了 Esc
                 self.overlay?.dismiss(animated: true)
                 self.overlay = nil
-                logDebug("用户按 Esc 取消了熄屏")
+                if isPreview {
+                    logDebug("预览：用户按 Esc 结束预览（不影响计时）")
+                } else {
+                    // 取消也要把状态收干净：isReminding 卡在 true 的话，
+                    // tick() 会一直提前 return，计时就永远停在这一刻了。
+                    self.skipLongBreak()
+                    logDebug("用户按 Esc 取消了熄屏，本轮大休息记为跳过")
+                }
                 return
             }
 
             guard forceSleep else {
-                // 预览模式：不真熄屏。影片可用就把完整流程走一遍，方便直接看循环效果；
-                // 否则退回原来的「播完即退」。
+                // 不熄屏：落进循环休息画面，方便直接看完整流程。
                 if self.loopVideoEnabled,
                    self.overlay?.enterRestLoop(countdownSeconds: self.restCountdownMinutes * 60) == true {
                     self.inRestLoop = true
                     self.restLoopResumeTicks = 0
-                    self.restLoopIsPreview = true
-                    logDebug("预览：进入循环休息画面（未熄屏，不影响计时）")
+                    // 手动大休是「真的要休息」，按真实休息记账；只有预览才不计
+                    self.restLoopIsPreview = !manual
+                    if manual {
+                        Stats.shared.longBreakStarted()
+                        logDebug("立即大休：进入循环休息画面（未熄屏）")
+                    } else {
+                        logDebug("预览：进入循环休息画面（未熄屏，不影响计时）")
+                    }
+                } else if manual {
+                    // 手动大休但循环画面用不了（影片缺失 / 开关关着）：
+                    // 动画已经把人劝离屏幕了，就地收尾，别反过来强行熄屏
+                    self.overlay?.dismiss(animated: true)
+                    self.overlay = nil
+                    self.skipLongBreak()
+                    logDebug("立即大休：循环画面不可用，提醒动画结束后收尾")
                 } else {
                     self.overlay?.dismiss(animated: true)
                     self.overlay = nil
@@ -1086,6 +1133,26 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         updateStatusIcon()
     }
 
+    /// 把「大休息 / 提醒中」的状态收干净，但不算作休息过。
+    ///
+    /// 用在两个「提醒了却没真休息」的出口：用户在动画里按了 Esc、循环画面不可用。
+    /// 遮罩由调用方负责收起，这里只处理计数、图标和统计口径。
+    func skipLongBreak() {
+        overlay = nil
+        inRestLoop = false
+        restLoopResumeTicks = 0
+        restLoopIsPreview = false
+        pendingResetAfterSleep = false
+        isReminding = false
+        // 清零是必须的：不清的话下一秒 activeSeconds 还是满的，会立刻再弹一次
+        activeSeconds = 0
+        microBreakActiveSeconds = 0
+        presence = .focusing
+        blinkReminder.reset(restoreIcon: false)
+        updateStatusIcon()
+        updateMenuStates()
+    }
+
     /// 直接让显示器进入睡眠。pmset displaysleepnow 不需要 root，也不会锁屏 —— 
     /// 动一下鼠标就回来，所以「强制」是安全的。
     func forceDisplaySleep() {
@@ -1112,6 +1179,37 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     // MARK: - Actions
+    /// 立即大休：不等计时到点，马上走一遍完整的大休息流程。
+    ///
+    /// 和到点触发的区别只有一点 —— 这一步是用户主动要的，所以不看计时器、
+    /// 也不看「大休息」开关是否打开（他点了就是想休息）。
+    /// 熄屏与否仍然尊重「到点强制熄屏」的设置：在开会演示的人不会希望被强行黑屏。
+    @objc func startLongBreakNowAction() {
+        guard overlay == nil, !inRestLoop else {
+            logDebug("立即大休：已有遮罩或正在休息中，忽略")
+            return
+        }
+
+        // 微休息正在放：直接升级成大休。dismiss 会走它自己的 onFinish，
+        // 把 isInMicroBreak / 计时 / 统计一并收掉，这里不用重复处理。
+        if microOverlay != nil {
+            logDebug("立即大休：中断正在进行的微休息")
+            microOverlay?.dismiss(animated: true)
+        }
+
+        // 屏幕刚熄过、还挂在「等唤醒」上：这一趟是用户主动发起的，
+        // 留着它会让 tick() 每秒钟都把 isReminding 清掉，大休息就断了。
+        pendingResetAfterSleep = false
+
+        logDebug("立即大休：用户手动触发（时长 \(restCountdownMinutes > 0 ? "\(restCountdownMinutes) 分钟" : "不限时")，强制熄屏=\(forceSleepEnabled)）")
+
+        isReminding = true
+        Stats.shared.longBreakTriggered()
+        updateStatusIcon()
+
+        presentSleepOverlay(forceSleep: forceSleepEnabled, manual: true)
+    }
+
     @objc func resetTimerAction() {
         activeSeconds = 0
         microBreakActiveSeconds = 0

@@ -183,6 +183,20 @@
   .split{display:grid;grid-template-columns:1fr 1fr;gap:20px}
   .split figure{margin:0}
   .split img{border-radius:16px;border:1px solid var(--line)}
+  .now-rest{
+    display:grid;grid-template-columns:auto 1fr;gap:22px;align-items:start;
+    margin-top:26px;padding:24px 26px;border-radius:var(--radius);
+    border:1px solid var(--line);background:var(--panel);
+  }
+  .now-rest .cmd-key{
+    font-family:ui-monospace,SFMono-Regular,"SF Mono",Menlo,monospace;
+    font-size:13px;color:var(--accent);border:1px solid rgba(107,224,204,.35);
+    background:var(--accent-dim);border-radius:9px;padding:6px 10px;white-space:nowrap;
+  }
+  .now-rest h3{margin:0 0 8px;font-size:16px;font-weight:600}
+  .now-rest p{margin:0;color:var(--ink-2);font-size:14px}
+  .now-rest ul{margin:12px 0 0;padding-left:16px;color:var(--ink-3);font-size:13px}
+  .now-rest li{margin-bottom:4px}
 
   /* ── 播报 ── */
   .report-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:8px}
@@ -247,6 +261,7 @@
   @media (max-width:900px){
     .hero,.steps-layout,.privacy,.install{grid-template-columns:1fr;gap:36px}
     .compare,.split,.cards,.report-grid,.principles{grid-template-columns:1fr}
+    .now-rest{grid-template-columns:1fr;gap:14px}
     .nav-links{display:none}
     section{padding:72px 0}
     header{padding:56px 0 24px}
@@ -305,7 +320,7 @@
         <span><i></i>纯本地 · 不发网络请求</span>
         <span><i></i>MIT 开源</span>
         <span><i></i>macOS 13+</span>
-        <span><i></i>v1.1.0</span>
+        <span><i></i>v1.2.0</span>
       </div>
     </div>
     <div class="hero-shot">
@@ -434,6 +449,19 @@
         <img src="images/rest-loop.jpg" alt="循环休息画面" width="1080" height="699">
         <div class="caption">落进循环画面，花瓣与光晕对齐到 15 秒循环点</div>
       </figure>
+    </div>
+
+    <div class="now-rest">
+      <div class="cmd-key">⌘B</div>
+      <div>
+        <h3>不等倒计时：立即大休</h3>
+        <p>现在就想歇一会儿，不必等到 45 分钟。菜单第一项点下去，立刻走一遍同样的流程 —— 提醒动画 → 循环休息画面 / 熄屏，并且按真实休息记账。</p>
+        <ul>
+          <li>标题里写着这一休多长，跟着「休息时长」设置走</li>
+          <li>熄屏与否仍按你的「强制熄屏」设置，不会在会议上突然黑屏</li>
+          <li>循环画面不可用时，动画播完就收尾，计时照常重新开始</li>
+        </ul>
+      </div>
     </div>
   </div>
 </section>

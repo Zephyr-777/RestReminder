@@ -53,6 +53,14 @@ A full-screen breathing animation (5 / 8 / 15 s), then a **seamlessly looping gl
 
 The loop isn't a captured video — it's rendered frame by frame so that petals, glow and particles all align to a 15-second cycle. See [`docs/design/`](docs/design/).
 
+**You don't have to wait for the countdown.** The first menu item, `☕️ 立即大休` (Take a long break now, `⌘B`), skips the 45-minute wait and runs the exact same flow — reminder animation → loop screen / display sleep — and it counts as a real break.
+
+Three details worth calling out:
+
+- The title states how long the break will be (following your "rest duration" setting), so you never have to open a submenu to check.
+- Whether the display actually sleeps still honours the "force sleep" toggle. Someone in a meeting clicking this wants a break reminder, not a black screen.
+- If the loop screen isn't available (video missing and force-sleep off), the flow wraps up when the animation ends, resets both timers and returns to counting — it never gets stuck in "reminding".
+
 ### 😌 Blink rhythm — every 5 min, one small motion
 
 This is the highest-frequency channel (12 times an hour), so it **never pops a window, never makes a sound, never covers content**:
